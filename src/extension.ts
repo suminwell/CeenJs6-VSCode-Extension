@@ -386,7 +386,7 @@ export class Extension {
     private storage: Memento;
     private lastActiveEditor: TextEditor;
 
-    constructor(context: vscode.ExtensionContext, extensionScope: any) {
+    constructor(context: vscode.ExtensionContext) {
         this.context = context;
         this.storage = this.getWrappedGlobalState();
 
@@ -395,7 +395,6 @@ export class Extension {
         this.initClient();
         this.registerCommands();
 
-        extensionScope.deactivate = this.dispose.bind(this);
     }
 
     private connectToLocalHint() {
@@ -1292,7 +1291,9 @@ export class Extension {
     dispose() {
         this.client.dispose();
         Object.values(deviceChannel).forEach(channel => channel.dispose());
+        Object.keys(deviceChannel).forEach(id => delete deviceChannel[id]);
         extensionDebugChannel?.dispose();
+        extensionDebugChannel = null;
     }
 
     run(urlOrArgs?: string | Uri) {
@@ -1447,11 +1448,16 @@ export class Extension {
 export function activate(context: vscode.ExtensionContext) {
     extensionDebugChannel = vscode.window.createOutputChannel('CeenJs6 VSCode Extension Debug');
     logDebug(`extension "${EXTENSION_NAME}" is activating`);
-    extension = new Extension(context, this);
+    extension = new Extension(context);
     if (vscode.workspace.getConfiguration('ceenjs6').get<boolean>('enableHttpControl', false)) {
         context.subscriptions.push(createHttpServer());
     }
     logDebug(`extension "${EXTENSION_NAME}" is now active`);
+}
+
+export function deactivate() {
+    extension?.dispose();
+    extension = null;
 }
 
 export function logDebug(message?: any, ...optionalParams: any[]) {
