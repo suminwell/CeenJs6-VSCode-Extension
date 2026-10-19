@@ -2,7 +2,7 @@
     "name": "ceenjs6",
     "displayName": "CeenJs6",
     "description": "使用 VSCode 开发 CeenJs6 安卓自动化脚本和项目",
-    "version": "1.0.14",
+    "version": "1.0.14001",
     "requiredClientVersionName": "6.7.0",
     "requiredClientVersionCode": "3804",
     "publisher": "yeceen",
@@ -349,11 +349,14 @@
     },
     "scripts": {
         "vscode:prepublish": "npm run compile",
-        "compile": "tsc -p ./",
-        "watch": "tsc -watch -p ./",
+        "compile": "npm run version:check && tsc -p ./",
+        "watch": "npm run version:check && tsc -watch -p ./",
         "test": "npm run compile && node --test test/*.test.cjs",
-        "package": "vsce package",
-        "publish": "vsce publish"
+        "package": "node tools/package.cjs",
+        "publish": "vsce publish",
+        "version:check": "node tools/release-version.cjs --check",
+        "release:sync": "node tools/release-version.cjs --sync",
+        "release:prepare": "node tools/release-version.cjs --next"
     },
     "devDependencies": {
         "@types/archiver": "^3.0.0",
@@ -380,5 +383,7 @@
         "android",
         "automation",
         "javascript"
-    ]
+    ],
+    "ceenVersion": "1.0.14.1",
+    "upstreamVersion": "1.0.14"
 }

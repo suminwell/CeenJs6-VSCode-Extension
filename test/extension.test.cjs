@@ -112,7 +112,10 @@ test('CeenJs6 hello returns compatible extension version only once', t => {
     assert.equal(attaches, 1);
     const response = Buffer.concat(socket.writes);
     assert.equal(response.readInt32BE(4), 1);
-    assert.equal(JSON.parse(response.subarray(8).toString()).data.extensionVersion, manifest.version);
+    const helloData = JSON.parse(response.subarray(8).toString()).data;
+    assert.equal(helloData.extensionVersion, manifest.upstreamVersion);
+    assert.equal(helloData.ceenVersion, manifest.ceenVersion);
+    assert.notEqual(helloData.extensionVersion, manifest.version);
 });
 
 test('handshake disconnect rejects connectTo instead of leaving it pending', async () => {

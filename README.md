@@ -3,6 +3,7 @@
 在 VSCode 中连接 Android 上的 [CeenJs6](https://github.com/suminwell/CeenJs6)，运行、停止、保存脚本，同步项目并查看设备日志。
 
 - 插件 ID：`yeceen.ceenjs6`
+- 当前发行号：`1.0.14.1`；市场版本：`1.0.14001`
 - VSCode：1.85.0 或更高版本
 - Android 客户端：CeenJs6 6.7.0，内部版本号 3804 或更高版本
 - [Marketplace](https://marketplace.visualstudio.com/items?itemName=yeceen.ceenjs6) · [下载 VSIX](https://github.com/suminwell/CeenJs6-VSCode-Extension/releases) · [反馈问题](https://github.com/suminwell/CeenJs6-VSCode-Extension/issues)
@@ -70,6 +71,8 @@ npm ci
 npm test
 npm run package
 ```
+
+发行号使用“上游三段版本 + CEEN 修订号”：`1.0.14.1`、`1.0.14.2`；合并上游 `1.0.15` 后从 `1.0.15.1` 重新开始。Marketplace 仅接受三段版本，因此第三段按 `上游补丁号 × 1000 + 修订号` 自动生成，例如 `1.0.15.1 → 1.0.15001`。
 
 发布流程见 [PUBLISHING.md](PUBLISHING.md)，版本记录见 [CHANGELOG.md](CHANGELOG.md)。
 

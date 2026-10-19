@@ -143,7 +143,12 @@ export class Device extends events.EventEmitter {
         logDebug('## [m] Device.sendHello');
 
         let id = this.id++;
-        let data = { extensionVersion: projectPackage.version };
+        // Android checks the actual upstream protocol baseline, not the encoded
+        // Marketplace version, so a CEEN revision cannot bypass a newer minimum.
+        let data = {
+            extensionVersion: projectPackage.upstreamVersion,
+            ceenVersion: projectPackage.ceenVersion,
+        };
         if (err) {
             data['errorMessage'] = err;
         }

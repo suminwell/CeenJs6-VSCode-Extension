@@ -18,3 +18,5 @@ token.txt
 package-lock.json
 test/**
 .github/**
+
+tools/*.cjs
