@@ -32,7 +32,7 @@ const deviceChannel: { [prop: string]: OutputChannel } = {};
 
 const IP_LOOP_BACK = '127.0.0.1';
 const IP_UNIVERSAL = '0.0.0.0';
-const EXTENSION_NAME = 'AutoJs6 VSCode Extension';
+const EXTENSION_NAME = 'CeenJs6';
 
 const PLACEHOLDER_INPUT_OR_SELECT_A_WAY_TO_CONNECT = '输入或选择连接建立方式';
 const PLACEHOLDER_INPUT_OR_SELECT_A_NETWORK_INTERFACE = '输入或选择一个网络接口';
@@ -303,7 +303,7 @@ const commandsHierarchy: CommandsHierarchy[] = [ {
 } ];
 
 // @Reference to AutoX by SuperMonster003 on Jun 11, 2023.
-class AJHttpServer extends EventEmitter {
+class CeenJsHttpServer extends EventEmitter implements Disposable {
     public isHttpServerStarted = false;
     public port: number;
 
@@ -330,6 +330,11 @@ class AJHttpServer extends EventEmitter {
             logDebug(urlObj.pathname);
 
             if (urlObj.pathname == '/exec') {
+                if (request.method !== 'GET' || typeof queryObj.cmd !== 'string' || (queryObj.path !== undefined && typeof queryObj.path !== 'string')) {
+                    response.writeHead(400);
+                    response.end('Invalid command parameters');
+                    return;
+                }
                 response.writeHead(200);
                 response.end('this command is:' + queryObj.cmd + '-->' + queryObj.path);
                 this.emit('cmd', queryObj.cmd, queryObj.path);
@@ -339,7 +344,11 @@ class AJHttpServer extends EventEmitter {
                 response.end();
             }
         });
-        this.httpServer.listen(port, '0.0.0.0', () => {
+        this.httpServer.on('error', (error) => {
+            logDebug('HTTP server error', error.message);
+            vscode.window.showErrorMessage(`CeenJs6 HTTP 接口启动失败: ${error.message}`);
+        });
+        this.httpServer.listen(port, '127.0.0.1', () => {
             this.isHttpServerStarted = true;
             const address: any = this.httpServer.address();
             // var localAddress = this.getIPAddress();
@@ -347,18 +356,23 @@ class AJHttpServer extends EventEmitter {
             this.emit('connect');
         });
     }
+
+    dispose() {
+        this.httpServer.close();
+        this.isHttpServerStarted = false;
+    }
 }
 
 export class Extension {
     private readonly context: vscode.ExtensionContext;
-    private readonly storageKey: string = 'autojs6.devices';
+    private readonly storageKey: string = 'ceenjs6.devices';
     private readonly picks = {
-        ajClientLan: this.newPicker('connect', 'server', 'lan', 'AutoJs6 作为客户端连接至 VSCode 服务端 (使用 IP 地址)'),
-        ajClientQr: this.newPicker('connect', 'server', 'lan', 'AutoJs6 作为客户端连接至 VSCode 服务端 (使用 二维码)'),
-        ajServerLan: this.newPicker('connect', 'client', 'lan', 'VSCode 作为客户端连接至 AutoJs6 服务端 (使用 IP 地址)'),
-        ajServerAdb: this.newPicker('connect', 'client', 'adb', 'VSCode 作为客户端连接至 AutoJs6 服务端 (使用 ADB)'),
+        ajClientLan: this.newPicker('connect', 'server', 'lan', 'CeenJs6 作为客户端连接至 VSCode 服务端 (使用 IP 地址)'),
+        ajClientQr: this.newPicker('connect', 'server', 'lan', 'CeenJs6 作为客户端连接至 VSCode 服务端 (使用 二维码)'),
+        ajServerLan: this.newPicker('connect', 'client', 'lan', 'VSCode 作为客户端连接至 CeenJs6 服务端 (使用 IP 地址)'),
+        ajServerAdb: this.newPicker('connect', 'client', 'adb', 'VSCode 作为客户端连接至 CeenJs6 服务端 (使用 ADB)'),
         recordClear: this.newPicker('clear', 'record', null, '清除保存在本地的全部客户端 IP 地址记录'),
-        recordPrefix: this.newPicker('record', 'empty', null, 'VSCode 作为客户端使用 IP 地址 %s 连接至 AutoJs6 服务端'),
+        recordPrefix: this.newPicker('record', 'empty', null, 'VSCode 作为客户端使用 IP 地址 %s 连接至 CeenJs6 服务端'),
     };
     static readonly commands: Array<keyof Extension> = [
         'viewDocument', 'connect', 'disconnectAll', 'run', 'runWithoutArguments',
@@ -381,7 +395,7 @@ export class Extension {
         this.initClient();
         this.registerCommands();
 
-        extensionScope.deactivate = this.disconnectAll.bind(this);
+        extensionScope.deactivate = this.dispose.bind(this);
     }
 
     private connectToLocalHint() {
@@ -392,7 +406,7 @@ export class Extension {
         }
         this.showQuickPickForAvailableNetworkInterfaces(basicNI).then((ip) => {
             if (ip !== undefined) {
-                vscode.window.showInformationMessage(`在 AutoJs6 侧拉菜单开启客户端模式并连接至 ${ip}`);
+                vscode.window.showInformationMessage(`在 CeenJs6 侧拉菜单开启客户端模式并连接至 ${ip}`);
             }
         });
     }
@@ -515,11 +529,11 @@ export class Extension {
 
     private initActiveEditor() {
         this.lastActiveEditor = vscode.window.activeTextEditor;
-        vscode.window.onDidChangeActiveTextEditor((editor) => {
+        this.context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor((editor) => {
             if (editor && editor.document.uri.scheme !== 'output') {
                 this.lastActiveEditor = editor;
             }
-        });
+        }));
     }
 
     private initAdb(...path: string[]) {
@@ -568,7 +582,7 @@ export class Extension {
                     deviceChannel[device.deviceId] = devChn;
                 }
                 devChn.show(true);
-                vscode.window.showInformationMessage(`AutoJs6 设备接入: ${device}`);
+                vscode.window.showInformationMessage(`CeenJs6 设备接入: ${device}`);
                 if (type === ConnectionType.SERVER_ADB) {
                     connectedServerAdb.add(device.adbDeviceId);
                 } else if (type === ConnectionType.SERVER_LAN) {
@@ -578,7 +592,7 @@ export class Extension {
                 logDebug(connectedServerLan);
             })
             .on('detach_device', (device: Device) => {
-                vscode.window.showInformationMessage(`AutoJs6 设备断开: ${device}`);
+                vscode.window.showInformationMessage(`CeenJs6 设备断开: ${device}`);
                 connectedServerAdb.delete(device.adbDeviceId);
                 connectedServerLan.delete(device.host);
             })
@@ -598,7 +612,7 @@ export class Extension {
         }
         Extension.commands.forEach((command) => {
             let action = this.getBoundAction(command);
-            this.context.subscriptions.push(vscode.commands.registerCommand(`extension.${command}`, action));
+            this.context.subscriptions.push(vscode.commands.registerCommand(`ceenjs6.${command}`, action));
         });
     }
 
@@ -728,8 +742,8 @@ export class Extension {
         if (!url) {
             let folders = vscode.workspace.workspaceFolders;
             if (!folders || folders.length === 0) {
-                // vscode.window.showInformationMessage('An opened AutoJs6 project is needed');
-                vscode.window.showInformationMessage('需要一个已打开的 AutoJs6 项目');
+                // vscode.window.showInformationMessage('An opened CeenJs6 project is needed');
+                vscode.window.showInformationMessage('需要一个已打开的 CeenJs6 项目');
                 return null;
             }
             folder = folders[0].uri;
@@ -755,7 +769,7 @@ export class Extension {
 
     private connectByAdb() {
         let devices = this.listAdbDevices();
-        if (typeof devices !== 'object' || devices.size === 0) {
+        if (!devices || devices.size === 0) {
             vscode.window.showErrorMessage('未发现通过 ADB 连接的设备');
             return;
         }
@@ -774,27 +788,15 @@ export class Extension {
             if (!dev) {
                 return;
             }
-            let ports: ({ src: number; dst: number })[] = [ {
-                src: yield this.findAvailPorts(),
-                dst: Device.defaultClientPort,
-            }, {
-                src: yield this.findAvailPorts(),
-                dst: Device.defaultAdbServerPort,
-            } ];
+            const localPort = yield this.findAvailPorts();
 
             try {
                 logDebug(`adb device id: ${dev.id}`);
-                ports.forEach((port) => {
-                    logDebug(`got an adb source port: ${port.src}`);
-                    this.adb.execOrThrow([ '-s', dev.id, 'forward', 'tcp:' + port.src, 'tcp:' + port.dst ]);
-                });
-
-                let idTimeout = setTimeout(() => this.onAdbDeviceConnectTimeout(dev), 5e3);
-
-                this.client.connectTo(IP_LOOP_BACK, ports[0].src, ConnectionType.SERVER_ADB, dev.id)
-                    .then(() => clearTimeout(idTimeout));
+                this.adb.execOrThrow([ '-s', dev.id, 'forward', 'tcp:' + localPort, 'tcp:' + Device.defaultClientPort ]);
+                yield this.client.connectTo(IP_LOOP_BACK, localPort, ConnectionType.SERVER_ADB, dev.id);
             } catch (e) {
-                vscode.window.showErrorMessage(e.toString());
+                this.adb.exec([ '-s', dev.id, 'forward', '--remove', 'tcp:' + localPort ]);
+                vscode.window.showErrorMessage(`无法通过 ADB 连接 CeenJs6 (${dev.id}): ${e.message}。请确认设备已授权 USB 调试，并在 CeenJs6 侧拉菜单开启服务端模式。`);
                 return null;
             }
         }.bind(this)));
@@ -802,14 +804,14 @@ export class Extension {
 
     private listAdbDevices(): Map<string, DeviceInfo> {
         let res: SpawnSyncReturns<Buffer> = this.adb.exec([ 'devices', '-l' ]);
-        if (res.pid === 0) {
+        if (res.error || res.status !== 0 || !res.stdout) {
             vscode.window.showErrorMessage('ADB 可能未安装或未被正确配置', '查看如何配置 ADB').then((choice) => {
                 choice && vscode.env.openExternal(vscode.Uri.parse('https://segmentfault.com/a/1190000021822394'));
             });
             return null;
         }
         let map = new Map<string, DeviceInfo>();
-        res.stdout.toString().split('\r\n').forEach((dev) => {
+        res.stdout.toString().split(/\r?\n/).forEach((dev) => {
             let dev_info = this.matchDevice(dev);
             if (dev_info !== null) {
                 map.set(dev_info.name, dev_info);
@@ -884,27 +886,6 @@ export class Extension {
         };
 
         return (this.findAvailPorts = findPorts.call(this))();
-    }
-
-    onAdbDeviceConnectTimeout(device: DeviceInfo) {
-        let res = this.adb.execOrThrow([
-            '-s', device.id, 'shell', 'content', 'query',
-            '--uri', 'content://org.autojs.autojs.debug.provider/debug-server',
-        ]);
-        let stdout = res.stdout.toString();
-        let stderr = res.stderr.toString();
-        let errEnsureServerModeOn = '请确认 AutoJs6 侧拉菜单已开启 "服务端模式 (Server mode)"';
-
-        logDebug('query result: stdout = %s, stderr = %s, result = ', stdout, stderr, res);
-
-        if ((stdout + stderr).includes('Could not find provider')) {
-            vscode.window.showWarningMessage(errEnsureServerModeOn);
-        } else {
-            const matched = stdout.match(/state=(\d+)/);
-            if (matched === null || parseInt(matched[1]) !== 2) {
-                vscode.window.showErrorMessage(errEnsureServerModeOn);
-            }
-        }
     }
 
     connect() {
@@ -1003,15 +984,15 @@ export class Extension {
                     }
                     host = split[0];
                 }
-                vscode.window.showInformationMessage(`正在连接至 AutoJs6 服务端 (${host})...`);
+                vscode.window.showInformationMessage(`正在连接至 CeenJs6 服务端 (${host})...`);
                 this.client.connectTo(host, port, ConnectionType.SERVER_LAN).catch((e) => {
                     logDebug(e);
-                    vscode.window.showErrorMessage(`无法连接至 AutoJs6 服务端 (${host})`, '查看解决方案').then((choice) => {
+                    vscode.window.showErrorMessage(`无法连接至 CeenJs6 服务端 (${host})`, '查看解决方案').then((choice) => {
                         if (choice) {
-                            const header = 'AutoJs6 服务端连接诊断';
+                            const header = 'CeenJs6 服务端连接诊断';
                             vscode.window.showInformationMessage(header, {
                                 detail: [
-                                    `检查 AutoJs6 主页侧拉抽屉是否已开启 "服务端模式"`,
+                                    `检查 CeenJs6 主页侧拉抽屉是否已开启 "服务端模式"`,
                                     `检查两端设备是否位于同一局域网`,
                                     `检查 VSCode 所在设备的防火墙是否允许 ${port} 端口通信`,
                                     `尝试使用其他方式 (如 ADB 等) 建立连接`,
@@ -1022,7 +1003,7 @@ export class Extension {
                     });
                 });
             } else {
-                vscode.window.showErrorMessage(`连接 AutoJs6 服务端失败, 无法解析地址 ${cmd}`);
+                vscode.window.showErrorMessage(`连接 CeenJs6 服务端失败, 无法解析地址 ${cmd}`);
             }
         }
     }
@@ -1066,7 +1047,7 @@ export class Extension {
                     //     const prefixRecord = '[ 记录 ] - ';
                     //     const prefixDefault = DEFAULT_QUICK_PICK_PLACEHOLDER;
                     //     if (label.startsWith(prefixRecord)) {
-                    //         input.placeholder = `使用局域网连接至 AutoJs6 服务端 (${label.slice(prefixRecord.length)})`;
+                    //         input.placeholder = `使用局域网连接至 CeenJs6 服务端 (${label.slice(prefixRecord.length)})`;
                     //     } else {
                     //         input.placeholder = prefixDefault;
                     //     }
@@ -1189,8 +1170,8 @@ export class Extension {
         try {
             return await new Promise<string | T | T[] | undefined | Promise<any>>((resolve) => {
                 const input = vscode.window.createQuickPick();
-                input.title = options.title || `连接到 AutoJs6 服务端`;
-                input.placeholder = options.placeholder || `输入或选择 AutoJs6 服务端 IP 地址, 按回车 (Enter) 键建立连接`;
+                input.title = options.title || `连接到 CeenJs6 服务端`;
+                input.placeholder = options.placeholder || `输入或选择 CeenJs6 服务端 IP 地址, 按回车 (Enter) 键建立连接`;
                 input.items = commands;
                 input.buttons = [
                     ...[],
@@ -1244,7 +1225,7 @@ export class Extension {
         try {
             return await new Promise<string | T | T[] | undefined>((resolve) => {
                 const input = vscode.window.createQuickPick();
-                input.title = `连接到 AutoJs6 服务端`;
+                input.title = `连接到 CeenJs6 服务端`;
                 input.placeholder = `输入或选择需要连接的设备, 按回车 (Enter) 键建立连接`;
                 input.items = commands;
                 input.buttons = [
@@ -1299,13 +1280,19 @@ export class Extension {
     }
 
     viewDocument() {
-        vscode.env.openExternal(vscode.Uri.parse('https://docs.autojs6.com/'));
+        vscode.env.openExternal(vscode.Uri.parse('https://github.com/suminwell/CeenJs6#readme'));
     }
 
     disconnectAll() {
         this.client.disconnect();
-        vscode.window.showInformationMessage('AutoJs6 已断开所有连接');
-        // vscode.window.showInformationMessage('All connections to AutoJs6 disconnected');
+        vscode.window.showInformationMessage('CeenJs6 已断开所有连接');
+        // vscode.window.showInformationMessage('All connections to CeenJs6 disconnected');
+    }
+
+    dispose() {
+        this.client.dispose();
+        Object.values(deviceChannel).forEach(channel => channel.dispose());
+        extensionDebugChannel?.dispose();
     }
 
     run(urlOrArgs?: string | Uri) {
@@ -1458,18 +1445,27 @@ export class Extension {
 
 // noinspection JSUnusedGlobalSymbols
 export function activate(context: vscode.ExtensionContext) {
-    extensionDebugChannel = vscode.window.createOutputChannel('AutoJs6 VSCode Extension Debug');
+    extensionDebugChannel = vscode.window.createOutputChannel('CeenJs6 VSCode Extension Debug');
     logDebug(`extension "${EXTENSION_NAME}" is activating`);
     extension = new Extension(context, this);
+    if (vscode.workspace.getConfiguration('ceenjs6').get<boolean>('enableHttpControl', false)) {
+        context.subscriptions.push(createHttpServer());
+    }
     logDebug(`extension "${EXTENSION_NAME}" is now active`);
 }
 
 export function logDebug(message?: any, ...optionalParams: any[]) {
     if (extensionDebugChannel) {
-        let fullMessage = String(message);
+        const format = (value: any): string => {
+            try {
+                return typeof value === 'object' ? JSON.stringify(value) : String(value);
+            } catch {
+                return '[unserializable object]';
+            }
+        };
+        let fullMessage = format(message);
         if (optionalParams.length > 0) {
-            fullMessage.trimEnd();
-            fullMessage += ` ${optionalParams.map(param => typeof param === 'object' ? JSON.stringify(param) : String(param)).join(' ')}`;
+            fullMessage += ` ${optionalParams.map(format).join(' ')}`;
         }
         extensionDebugChannel.appendLine(fullMessage);
     }
@@ -1477,13 +1473,13 @@ export function logDebug(message?: any, ...optionalParams: any[]) {
 
 export type ProjectCommands = 'run_project' | 'save_project';
 
-new AJHttpServer(HTTP_SERVER_PORT)
+function createHttpServer(): CeenJsHttpServer {
+    return new CeenJsHttpServer(HTTP_SERVER_PORT)
     .on('cmd', (cmd: keyof Extension, ...params) => {
         logDebug(`Received cmd: ${cmd}`);
         switch (cmd) {
             case 'rerunProject':
-                extension.stopAll();
-                setTimeout(() => extension.run(...params), 1e3);
+                extension.rerunProject(...params);
                 break;
             default:
                 if (!Extension.commands.includes(cmd)) {
@@ -1493,7 +1489,5 @@ new AJHttpServer(HTTP_SERVER_PORT)
                 logDebug(`执行接收到的指令 "${cmd}"`);
                 extension[cmd]['call'](extension, ...params);
         }
-    })
-    .on('error', (e) => {
-        logDebug(`HTTP server error: ${e}`);
     });
+}

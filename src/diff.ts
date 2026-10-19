@@ -66,6 +66,7 @@ export class FileObserver {
                 }
                 const timestamp = stat.mtime.getTime();
                 if (oldFiles.has(file.path) && oldFiles.get(file.path) == timestamp) {
+                    this.files.set(file.path, timestamp);
                     oldFiles.delete(file.path);
                     return;
                 }

@@ -164,7 +164,7 @@ export class LaunchConfig {
     constructor() {
         this.displaySplash = true;
         this.hideLogs = false;
-        this.splashText = 'Powered by AutoJs6';
+        this.splashText = 'Powered by CeenJs6';
         this.stableMode = false;
     }
 }

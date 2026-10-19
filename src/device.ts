@@ -11,8 +11,8 @@ import { connectedServerAdb, connectedServerLan, ConnectionType, Extension, logD
 let packageJson: string = fs.readFileSync(path.resolve(__dirname, '../package.json'), 'utf8');
 let projectPackage = JSON.parse(packageJson);
 
-export const REQUIRED_AUTOJS6_VERSION_NAME = projectPackage['requiredClientVersionName'];
-export const REQUIRED_AUTOJS6_VERSION_CODE = parseInt(projectPackage['requiredClientVersionCode']) || -1;
+export const REQUIRED_CEENJS6_VERSION_NAME = projectPackage['requiredClientVersionName'];
+export const REQUIRED_CEENJS6_VERSION_CODE = parseInt(projectPackage['requiredClientVersionCode']) || -1;
 
 const HEADER_SIZE = 8;
 
@@ -36,6 +36,7 @@ export class Device extends events.EventEmitter {
     private id = 1;
     private name: string;
     private isAttached = false;
+    private handshakeTimer: NodeJS.Timeout;
 
     connection: Socket;
     deviceId: string;
@@ -56,17 +57,20 @@ export class Device extends events.EventEmitter {
         this.on('data:hello', (data: HelloData) => {
             logDebug('on server hello: ', data);
 
-            this.isAttached = true;
+            if (this.isAttached || !this.connection) {
+                return;
+            }
+            clearTimeout(this.handshakeTimer);
             this.name = data.device_name || 'unknown device';
             this.versionName = data.app_version;
             this.versionCode = parseInt(data.app_version_code);
-            logDebug(`AutoJs6 version: ${this.versionName} (${this.versionCode})`);
-            logDebug(`Required AutoJs6 version: ${REQUIRED_AUTOJS6_VERSION_NAME} (${REQUIRED_AUTOJS6_VERSION_CODE})`);
-            if (this.versionCode < REQUIRED_AUTOJS6_VERSION_CODE) {
-                let releasesUrl = 'https://github.com/SuperMonster003/AutoJs6/releases/';
+            logDebug(`CeenJs6 version: ${this.versionName} (${this.versionCode})`);
+            logDebug(`Required CeenJs6 version: ${REQUIRED_CEENJS6_VERSION_NAME} (${REQUIRED_CEENJS6_VERSION_CODE})`);
+            if (!Number.isFinite(this.versionCode) || this.versionCode < REQUIRED_CEENJS6_VERSION_CODE) {
+                let releasesUrl = 'https://github.com/suminwell/CeenJs6/releases/';
                 let currentVerInfo = `${this.versionName} (${this.versionCode})`;
-                let requiredVerInfo = `${REQUIRED_AUTOJS6_VERSION_NAME} (${REQUIRED_AUTOJS6_VERSION_CODE})`;
-                let errMessage = `无法建立连接, AutoJs6 版本 ${currentVerInfo} 应不低于 ${requiredVerInfo}`;
+                let requiredVerInfo = `${REQUIRED_CEENJS6_VERSION_NAME} (${REQUIRED_CEENJS6_VERSION_CODE})`;
+                let errMessage = `无法建立连接, CeenJs6 版本 ${currentVerInfo} 应不低于 ${requiredVerInfo}`;
 
                 vscode.window.showErrorMessage(errMessage, '查看所有项目版本')
                     .then(choice => choice && vscode.env.openExternal(vscode.Uri.parse(releasesUrl)));
@@ -80,11 +84,12 @@ export class Device extends events.EventEmitter {
             this.deviceId = data.device_id;
 
             this.sendHello();
+            this.isAttached = true;
             this.emit('attach', this);
         });
 
-        setTimeout(() => {
-            if (!this.isAttached) {
+        this.handshakeTimer = setTimeout(() => {
+            if (!this.isAttached && this.connection) {
                 logDebug('Handshake timed out');
                 vscode.window.showErrorMessage('连接建立超时');
                 this.connection.destroy();
@@ -155,8 +160,9 @@ export class Device extends events.EventEmitter {
     }
 
     disconnect() {
-        this.connection.destroy();
         this.isNormallyClosed = true;
+        clearTimeout(this.handshakeTimer);
+        this.connection?.destroy();
     }
 
     connectionToString() {
@@ -222,6 +228,7 @@ export class Device extends events.EventEmitter {
                 }
             })
             .on('close', (had_error: boolean) => {
+                clearTimeout(this.handshakeTimer);
                 logDebug('on close');
                 logDebug(`closed: {device: ${this}, had_error: ${had_error}}`);
                 this.connection = null;
@@ -276,6 +283,10 @@ export class Devices extends events.EventEmitter {
             this.accept(socket);
         });
         Devices.instance = this;
+        this.serverSocket.on('error', (error: NodeJS.ErrnoException) => {
+            logDebug('device server error', error.message);
+            vscode.window.showErrorMessage(`CeenJs6 设备监听失败 (${LISTENING_PORT}): ${error.message}。请检查是否有其他 VSCode 窗口或 AutoJs6 插件占用此端口。`);
+        });
         this.serverSocket.listen(LISTENING_PORT, () => {
             logDebug(`server listening on port ${LISTENING_PORT}`);
         });
@@ -332,6 +343,7 @@ export class Devices extends events.EventEmitter {
                     }
                     resolve(device);
                 });
+                device.once('disconnect', () => reject(new Error('CeenJs6 在握手完成前断开连接')));
             });
             socket.on('error', (e) => {
                 logDebug('connect error: ', e);
@@ -380,6 +392,15 @@ export class Devices extends events.EventEmitter {
         this.recentDevice = null;
     }
 
+    dispose() {
+        this.disconnect();
+        this.project?.dispose();
+        this.serverSocket.close();
+        if (Devices.instance === this) {
+            Devices.instance = null;
+        }
+    }
+
     getDevice(id: string): Device {
         logDebug('## Devices.getDevice');
 
@@ -414,7 +435,7 @@ export class Devices extends events.EventEmitter {
                 return;
             }
             vscode.window.showInformationMessage(`执行接收到的指令 "${cmd}"`);
-            vscode.commands.executeCommand(`extension.${cmd}`);
+            vscode.commands.executeCommand(`ceenjs6.${cmd}`);
         });
         device.on('disconnect', this.detachDevice.bind(this, device));
 
@@ -424,7 +445,10 @@ export class Devices extends events.EventEmitter {
     detachDevice(device: Device) {
         logDebug('## Devices.detachDevice');
 
-        this.devices.splice(this.devices.indexOf(device), 1);
+        const index = this.devices.indexOf(device);
+        if (index >= 0) {
+            this.devices.splice(index, 1);
+        }
         if (this.recentDevice === device) {
             this.recentDevice = null;
         }

@@ -7,9 +7,7 @@ import {SpawnSyncReturns} from 'child_process';
 
 class AbdExecError extends Error {
     constructor(result: SpawnSyncReturns<Buffer>) {
-        result.status !== null
-            ? super(`exited ${result.status}, stderr = ${result.stderr.toString()}, stdout = ${result.stdout.toString()}`)
-            : super(`killed ${result.signal}, stderr = ${result.stderr.toString()}, stdout = ${result.stdout.toString()}`);
+        super(result.error?.message || `ADB exited ${result.status}, stderr = ${result.stderr?.toString() || ''}, stdout = ${result.stdout?.toString() || ''}`);
     }
 }
 
@@ -33,18 +31,18 @@ export class Adb {
     }
 
     exec(args: ReadonlyArray<string>): SpawnSyncReturns<Buffer> {
-        return c_proc.spawnSync(this.executable(), args);
+        return c_proc.spawnSync(this.executable(), args, { timeout: 10000 });
     }
 
     execOrThrow(args: ReadonlyArray<string>): SpawnSyncReturns<Buffer> {
         return Adb.throwsIfNeeded(this.exec(args));
     }
 
-    execOut(args: ReadonlyArray<string>, options: Object): SpawnSyncReturns<Buffer> {
-        return c_proc.spawnSync(this.executable(), ['exec-out', ...args], Object.assign({encoding: 'buffer'}, options));
+    execOut(args: ReadonlyArray<string>, options: c_proc.SpawnSyncOptionsWithBufferEncoding): SpawnSyncReturns<Buffer> {
+        return c_proc.spawnSync(this.executable(), ['exec-out', ...args], { ...options, encoding: 'buffer', timeout: 10000 });
     }
 
-    execOutOrThrow(args: ReadonlyArray<string>, options: Object): SpawnSyncReturns<Buffer> {
+    execOutOrThrow(args: ReadonlyArray<string>, options: c_proc.SpawnSyncOptionsWithBufferEncoding): SpawnSyncReturns<Buffer> {
         return Adb.throwsIfNeeded(this.execOut(args, options));
     }
 

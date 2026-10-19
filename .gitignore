@@ -10,6 +10,5 @@
 *.vsix
 *.bak
 token.txt
-package-lock.json
 sync.ffs_db
 debug.log

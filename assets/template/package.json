@@ -4,14 +4,13 @@
     "description": "project-description",
     "main": "main.js",
     "scripts": {
-        "test": "echo \"Error: no test specified\" && exit 1",
-        "dts": "npm i @sm003/autojs6-dts",
+        "dts": "npm install",
         "dts-link": "node .internal/create-dts-link.mjs"
     },
     "keywords": [],
     "author": "",
     "license": "ISC",
     "devDependencies": {
-        "@sm003/autojs6-dts": "^2.0.0"
+        "ceenjs6": "https://codeload.github.com/suminwell/CeenJs6-TypeScript-Declarations/tar.gz/f0cf7b1b5ad493fe1bcb8d909d1abc9b3bb0d875"
     }
 }

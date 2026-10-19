@@ -1,3 +1,3 @@
-const autojsUtils = require('./modules/autojs-utils');
+const ceenjsUtils = require('./modules/ceenjs-utils');
 
-autojsUtils.test();
+ceenjsUtils.test();

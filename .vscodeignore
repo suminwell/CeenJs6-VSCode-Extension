@@ -8,7 +8,7 @@ src/**
 .gitignore
 node_modules/typescript/**
 node_modules/@types/**
-node_modules/@sm003/autojs6-dts/**
+node_modules/ceenjs6/**
 tsconfig.json
 vsc-extension-quickstart.md
 *.vsix
@@ -16,3 +16,5 @@ vsc-extension-quickstart.md
 *.js
 token.txt
 package-lock.json
+test/**
+.github/**
